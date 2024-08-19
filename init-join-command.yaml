@@ -1,0 +1,42 @@
+---
+- name: Get the kubeadm join command from the Kubernetes control plane.
+  ansible.builtin.command: kubeadm token create --print-join-command
+  changed_when: false
+  register: kubernetes_join_command_result
+
+- name: Set the kubeadm join command globally.
+  ansible.builtin.set_fact:
+    kubernetes_join_command_base: >
+      {{ kubernetes_join_command_result.stdout }}
+  when: kubernetes_join_command_result.stdout is defined
+  delegate_to: "{{ item }}"
+  delegate_facts: true
+  with_items: "{{ groups['all'] }}"
+
+- name: Get the kubeadm join command from the Kubernetes control plane.
+  ansible.builtin.shell: |
+    set -o pipefail
+    kubeadm init phase upload-certs --upload-certs | grep "Using certificate key:" -A1 | tail -n 1
+  changed_when: false
+  register: kubernetes_certificate_key
+
+- name: Print kubeadm join command for manual use 2
+  ansible.builtin.debug:
+    msg: "{{ kubernetes_join_command_result.stdout }}"
+
+- name: Print cert
+  ansible.builtin.debug:
+    msg: "{{ kubernetes_join_command_result.stdout }}"
+
+- name: Set the kubeadm extra vars to join command globally.
+  ansible.builtin.set_fact:
+    kubernetes_join_certificate_key_arg: >
+      --certificate-key {{ kubernetes_certificate_key.stdout }}
+  when: kubernetes_certificate_key.stdout is defined
+  delegate_to: "{{ item }}"
+  delegate_facts: true
+  with_items: "{{ groups['all'] }}"
+
+- name: Print kubeadm join command for manual use
+  ansible.builtin.debug:
+    var: kubernetes_join_certificate_key

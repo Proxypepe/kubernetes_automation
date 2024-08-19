@@ -1,0 +1,53 @@
+---
+
+# - name: Deploy kubeadm configuration file
+#   ansible.builtin.copy:
+#     src: kubeadm.yaml
+#     dest: /root/kubeadm.yaml
+
+# - name: Deploy kubeadm configuration file
+#   ansible.builtin.copy:
+#     src: /path/to/your/kubeadm-config.yaml
+#     dest: /etc/kubernetes/kubeadm-config.yaml
+#   when: kubeadm_init_config is defined and and kubeadm_init_config != ""
+
+- name: Initialize Kubernetes cluster
+  ansible.builtin.command: "kubeadm init {{ kubeadm_init_extra }}"
+  register: kubeadm_init_result
+
+# - name: Save join command for other nodes
+#   ansible.builtin.copy:
+#     content: "{{ kubeadm_init_result.stdout_lines | select('match', '^kubeadm join') | list | first }}"
+#     dest: /root/kubeadm-join-command.sh
+
+- name: Print kubeadm join command for manual use
+  ansible.builtin.debug:
+    msg: "{{ kubeadm_init_result.stdout_lines | list }}"
+
+- name: Ensure .kube directory exists.
+  ansible.builtin.file:
+    path: ~/.kube
+    state: directory
+    mode: '0755'
+
+- name: Symlink the kubectl admin.conf to ~/.kube/conf.
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: ~/.kube/config
+    remote_src: true
+    mode: '0644'
+
+- name: Symlink the kubectl admin.conf to ~/.kube/conf.
+  ansible.builtin.copy:
+    src: calico.yaml
+    dest: "{{ kubernetes_calico_manifest_file }}"
+    mode: '0644'
+
+- name: Configure Calico networking.
+  ansible.builtin.command: "kubectl apply -f {{ kubernetes_calico_manifest_file }}"
+  register: calico_result
+  changed_when: "'created' in calico_result.stdout"
+  when: kubernetes_pod_network.cni == 'calico'
+  until: calico_result is not failed
+  retries: 12
+  delay: 5

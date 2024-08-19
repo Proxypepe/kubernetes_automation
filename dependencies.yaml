@@ -1,0 +1,130 @@
+---
+- name: Ensure crio_version has a 'v' prefix
+  set_fact:
+    crio_version: "{{ crio_version if crio_version | regex_search('^v') else 'v' + crio_version }}"
+
+- name: Ensure crio_version has a 'v' prefix
+  set_fact:
+    kubernetes_version: "{{ kubernetes_version if kubernetes_version | regex_search('^v') else 'v' + kubernetes_version }}"
+
+- name: Add Kubernetes repository
+  ansible.builtin.yum_repository:
+    name: kubernetes
+    description: Kubernetes Repository
+    baseurl: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/rpm/"
+    gpgkey: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/rpm/repodata/repomd.xml.key"
+    enabled: true
+    gpgcheck: false
+
+- name: Add cri-o repository
+  ansible.builtin.yum_repository:
+    name: cri-o
+    description: Cri-o Repository
+    baseurl: "https://pkgs.k8s.io/addons:/cri-o:/stable:/{{ crio_version }}/rpm/"
+    gpgkey: "https://pkgs.k8s.io/addons:/cri-o:/stable:/{{ crio_version }}/rpm/repodata/repomd.xml.key"
+    enabled: true
+    gpgcheck: false
+
+- name: Install cri-o, kubeadm, kubelet, kubectl
+  ansible.builtin.yum:
+    name:
+      - cri-o
+      - kubeadm
+      - kubelet
+      - kubectl
+    state: present
+
+- name: Configure crio conf
+  block:
+    - name: Check if [crio.image] section exists
+      ansible.builtin.command: grep -q '^\[crio.image\]' "{{ crio_config_file_path }}"
+      register: crio_image_section_check
+      failed_when: false
+
+    - name: Insert pause_image line if [crio.image] section exists
+      ansible.builtin.lineinfile:
+        path: "{{ crio_config_file_path }}"
+        regexp: 'pause_image\s*='
+        line: 'pause_image = "{{ pause_image }}"'
+        insertafter: '^\[crio.image\]'
+      when:
+        - crio_image_section_check.rc == 0
+
+    - name: Insert [crio.image] section and pause_image line if [crio.image] section does not exist
+      ansible.builtin.blockinfile:
+        path: "{{ crio_config_file_path }}"
+        block: |
+          [crio.image]
+          pause_image = "{{ pause_image }}"
+        insertafter: BOF
+      when:
+        - crio_image_section_check.rc != 0
+
+- name: Delete /24 subnets
+  block:
+    - name: Remove the subnet lines with /24 mask
+      ansible.builtin.replace:
+        path: "{{ crio_subnet_config_path }}"
+        regexp: ',\n\s*\[{ "subnet": "10\.\d{1,3}\.\d{1,3}\.\d{1,3}/24" }\],?'
+        replace: ''
+
+- name: Enable cri-o and kubelet services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+  loop:
+    - crio
+    - kubelet
+
+- name: Load br_netfilter module
+  ansible.builtin.command: modprobe br_netfilter
+
+- name: Ensure net.ipv4.ip_forward is set in sysctl.conf
+  ansible.builtin.lineinfile:
+    path: /etc/sysctl.conf
+    line: '{{ item }}'
+    state: present
+  loop:
+    - 'net.ipv4.ip_forward=1'
+    - 'net.bridge.bridge-nf-call-ip6tables=1'
+    - 'fs.may_detach_mounts=1'
+
+- name: Applying
+  ansible.builtin.command: sysctl -p
+
+- name: Turn off all swap spaces
+  ansible.builtin.command: swapoff -a
+
+- name: Remove swap entries from /etc/fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^\s*[^#].*\s+swap\s+'
+    state: absent
+    backup: true
+
+- name: Ensure swap is disabled in the current session
+  ansible.builtin.command: free -m
+  register: free_output
+
+- name: Display current swap status
+  ansible.builtin.debug:
+    msg: "{{ free_output.stdout_lines }}"
+
+- name: Reload systemd manager configuration
+  ansible.builtin.command: systemctl daemon-reload
+
+- name: Remount all filesystems
+  ansible.builtin.command: mount -a
+
+- name: Create /var/lib/containers directory
+  ansible.builtin.file:
+    path: /var/lib/containers
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Ensure CRI-O service is started
+  ansible.builtin.systemd:
+    name: crio
+    state: started

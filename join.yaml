@@ -1,0 +1,8 @@
+---
+
+- name: Debug command line
+  ansible.builtin.debug:
+   msg: "Command line: {{ kubernetes_join_command_base }} {{ kubernetes_join_extra_vars | default('') }}"
+
+- name: Join node
+  ansible.builtin.command: "{{ kubernetes_join_command_base }} {{ kubernetes_join_extra_vars | default('') }}"

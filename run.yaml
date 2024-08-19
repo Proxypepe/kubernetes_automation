@@ -1,0 +1,56 @@
+---
+
+# - name: Install deps
+#   hosts: all
+#   become: true
+#   vars:
+#     kubernetes_version: "1.30"
+#     crio_version: "1.30"
+#   tasks:
+#     - name: Install deps
+#       ansible.builtin.include_tasks: dependencies-redos.yaml
+
+- name: Initialize first master
+  hosts: init-master
+  become: true
+  vars:
+    # crio_config_file_path: "/etc/crio/crio.conf.d/10-crio.conf"
+    # crio_subnet_config_path: "/etc/cni/net.d/11-crio-ipv4-bridge.conflist"
+    # pause_image: "registry.k8s.io/pause:3.9"
+    kubeadm_init_extra: "--control-plane-endpoint {{ ansible_ssh_host }}:6443"
+    kubeadm_init_config: ""
+    kubernetes_calico_manifest_file: "~/calico.yaml"
+  tasks:
+    # - name: Run
+    #   ansible.builtin.include_tasks: dependencies.yaml
+    - name: Check if cluster is already initialized
+      ansible.builtin.command: kubectl cluster-info
+      register: cluster_info
+      ignore_errors: true
+
+    - name: Initialize first master
+      ansible.builtin.include_tasks: init.yaml
+      when: cluster_info.rc == 1
+
+    - name: Check if cluster is initialized after tasks
+      ansible.builtin.command: kubectl cluster-info
+      when: cluster_info.rc == 1
+
+    - name: Initialize join command
+      ansible.builtin.include_tasks: init-join-command.yaml
+
+- name: Join mater nodes
+  hosts: masters
+  become: true
+  vars:
+    kubernetes_join_extra_vars: "--control-plane {{ kubernetes_join_certificate_key_arg }}"
+  tasks:
+    - name: Join master nodes
+      ansible.builtin.include_tasks: join.yaml
+
+- name: Join nodes
+  hosts: workers
+  become: true
+  tasks:
+    - name: Run
+      ansible.builtin.include_tasks: join.yaml
