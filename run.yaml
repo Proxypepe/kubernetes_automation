@@ -20,6 +20,8 @@
     kubeadm_init_extra: "--control-plane-endpoint {{ ansible_ssh_host }}:6443"
     kubeadm_init_config: ""
     kubernetes_calico_manifest_file: "~/calico.yaml"
+    kubernetes_pod_network:
+      cni: "calico"
   tasks:
     # - name: Run
     #   ansible.builtin.include_tasks: dependencies.yaml
