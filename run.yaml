@@ -1,14 +1,14 @@
 ---
 
-# - name: Install deps
-#   hosts: all
-#   become: true
-#   vars:
-#     kubernetes_version: "1.30"
-#     crio_version: "1.30"
-#   tasks:
-#     - name: Install deps
-#       ansible.builtin.include_tasks: dependencies-redos.yaml
+- name: Install deps
+  hosts: all
+  become: true
+  vars:
+    kubernetes_version: "1.30"
+    crio_version: "1.30"
+  tasks:
+    - name: Install deps
+      ansible.builtin.include_tasks: dependencies-redos.yaml
 
 - name: Initialize first master
   hosts: init-master
