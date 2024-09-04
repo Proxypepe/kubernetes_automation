@@ -1,0 +1,40 @@
+---
+# tasks file for init-cluster
+
+- name: Install kubectl bash completion
+  ansible.builtin.shell: "kubectl completion bash >/etc/bash_completion.d/kubectl.sh"
+  changed_when: false
+  tags:
+    - kubectl
+  ignore_errors: true  # noqa ignore-errors
+
+- name: Set kubectl bash completion file permissions
+  ansible.builtin.file:
+    path: /etc/bash_completion.d/kubectl.sh
+    owner: root
+    group: root
+    mode: "0755"
+  tags:
+    - kubectl
+  ignore_errors: true # noqa ignore-errors
+
+- name: Kubeadm | Check if kubeadm has already run
+  ansible.builtin.stat:
+    path: "/var/lib/kubelet/config.yaml"
+    get_attributes: false
+    get_checksum: false
+    get_mime: false
+  register: kubeadm_already_run
+  tags:
+    - init-cluster
+
+- name: Initialize cluster
+  ansible.builtin.include_tasks: kubeadm-setup.yml
+  when: not kubeadm_already_run.stat.exists
+  tags:
+    - init-cluster
+
+- name: Copy kubeconfig to the home directory
+  ansible.builtin.include_tasks: copy-kubeconfig.yml
+  tags:
+    - kubectl

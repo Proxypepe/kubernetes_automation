@@ -1,0 +1,19 @@
+---
+- name: Install rpm package | ensure crio_version has a 'v' prefix
+  ansible.builtin.set_fact:
+    crio_version: "{{ crio_version if crio_version | regex_search('^v') else 'v' + crio_version }}"
+
+- name: Install rpm package | add cri-o repository
+  ansible.builtin.yum_repository:
+    name: "{{ crio_yum_name }}"
+    description: "{{ crio_yum_description }}"
+    baseurl: "{{ crio_yum_base_url }}/{{ crio_version }}/rpm/"
+    gpgkey: "{{ crio_yum_base_url }}/{{ crio_version }}/rpm/repodata/repomd.xml.key"
+    enabled: "{{ crio_yum_enabled | default(true) }}"
+    gpgcheck: "{{ crio_yum_gpgcheck | default(true) }}"
+
+
+- name: Install rpm package | Install cri-o
+  ansible.builtin.yum:
+    name: cri-o
+    state: present

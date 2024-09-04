@@ -1,0 +1,3 @@
+---
+# defaults file for calico
+kubernetes_calico_manifest_file: "~/calico.yaml"

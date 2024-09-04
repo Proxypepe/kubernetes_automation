@@ -1,0 +1,73 @@
+---
+# tasks file for redos.yaml
+
+# - name: Disable swap
+#   ansible.builtin.command: swapoff -a
+#   changed_when: false
+
+# # - name: Delete swap from /etc/fstab
+# #   ansible.builtin.command: sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
+
+# - name: Delete
+#   ansible.builtin.replace:
+#     path: /etc/fstab
+#     regexp: '^(.*) swap (.*)$'
+#     replace: '# \1 swap \2'
+    # validate: 'findmnt --verify --verbose %s'
+
+- name: Host | check if /etc/fstab exists
+  ansible.builtin.stat:
+    path: "/etc/fstab"
+    get_attributes: false
+    get_checksum: false
+    get_mime: false
+  register: fstab_file
+
+- name: Host | Remove swapfile from /etc/fstab
+  ansible.posix.mount:
+    name: "{{ item }}"
+    fstype: swap
+    state: absent
+  loop:
+    - swap
+    - none
+  when: fstab_file.stat.exists
+
+- name: Host | Disable swap
+  ansible.builtin.command: /sbin/swapoff -a
+  changed_when: false
+
+- name: Host | Validate deleted
+  ansible.builtin.command: findmnt --verify --verbose
+  register: validate_mounts
+  changed_when: false
+  failed_when: "'Success, no errors or warnings detected' not in validate_mounts.stdout"
+
+- name: Host | Ensure swap is disabled in the current session
+  ansible.builtin.command: free -m
+  register: free_output
+  changed_when: false
+
+- name: Host | Display current swap status
+  ansible.builtin.debug:
+    msg: "{{ free_output.stdout_lines }}"
+
+- name: Host | Turn on kernel libs
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+    persistent: present
+  with_items: # TODO: Use variable
+    - overlay
+    - br_netfilter
+
+- name: Host | Ensure net.ipv4.ip_forward is set in sysctl.conf
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: 1
+    state: present
+    sysctl_file: "/etc/sysctl.d/99-kubernetes-cri.conf" # TODO: use var | default("/etc/sysctl.conf")
+    reload: true
+  with_items: # TODO: Use variable
+    - net.ipv4.ip_forward
+    - net.bridge.bridge-nf-call-iptables

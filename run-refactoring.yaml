@@ -1,0 +1,43 @@
+---
+
+# - name: Install deps
+#   hosts: all
+#   become: true
+#   tasks:
+    # - name: Install deps
+    #   ansible.builtin.import_role:
+    #     name: os/redos
+    # - name: Install deps
+    #   ansible.builtin.import_role:
+    #     name: container-engine/cri-o
+
+- name: Initialize kubernetes
+  hosts: masters[0]
+  become: true
+  gather_facts: false
+  tasks:
+    # - name: Initialize Kubernetes
+    #   ansible.builtin.import_role:
+    #     name: kubernetes/init-cluster
+    # - name: Install CNI
+    #   ansible.builtin.import_role:
+    #     name: network_plugin/calico
+    - name: Generate initial command
+      ansible.builtin.import_role:
+        name: kubernetes/join-command
+
+# - name: Join other masters
+#   hosts: masters[1:]
+#   become: true
+#   gather_facts: false
+#   tasks:
+#     - name: Join Kubernetes cluster
+
+- name: Join slaves
+  hosts: workers
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Join Kubernetes cluster
+      ansible.builtin.import_role:
+        name: kubernetes/join-node

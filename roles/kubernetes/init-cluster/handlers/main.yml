@@ -1,0 +1,12 @@
+---
+# handlers file for init-cluster
+- name: Master | reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  listen: Master | restart kubelet
+
+- name: Master | reload kubelet
+  ansible.builtin.service:
+    name: kubelet
+    state: restarted
+  listen: Master | restart kubelet

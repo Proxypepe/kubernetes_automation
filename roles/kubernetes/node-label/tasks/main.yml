@@ -1,0 +1,48 @@
+---
+# tasks file for node-label
+- name: Kubernetes Apps | Wait for kube-apiserver
+  ansible.builtin.uri:
+    url: "{{ kube_apiserver_endpoint }}/healthz"
+    validate_certs: false
+  register: result
+  until: result.status == 200
+  retries: 10
+  delay: 6
+  when: inventory_hostname == groups['masters'][0]
+
+- name: Set role node label to empty list
+  ansible.builtin.set_fact:
+    role_node_labels: []
+
+- name: Node label for nvidia GPU nodes
+  ansible.builtin.set_fact:
+    role_node_labels: "{{ role_node_labels + ['nvidia.com/gpu=true'] }}"
+  when:
+    - nvidia_gpu_nodes is defined
+    - nvidia_accelerator_enabled | bool
+    - inventory_hostname in nvidia_gpu_nodes
+
+- name: Set inventory node label to empty list
+  ansible.builtin.set_fact:
+    inventory_node_labels: []
+
+- name: Populate inventory node label
+  ansible.builtin.set_fact:
+    inventory_node_labels: "{{ inventory_node_labels + ['%s=%s' | format(item.key, item.value)] }}"
+  loop: "{{ node_labels | d({}) | dict2items }}"
+  when:
+    - node_labels is defined
+    - node_labels is mapping
+
+- ansible.builtin.debug:  # noqa name[missing]
+    var: role_node_labels
+
+- ansible.builtin.debug:  # noqa name[missing]
+    var: inventory_node_labels
+
+- name: Set label to node
+  ansible.builtin.command: >-
+    {{ kubectl }} label node {% if kube_override_hostname %}{{ kube_override_hostname }}{% else %}{{ inventory_hostname }}{% endif %} {{ item }} --overwrite=true
+  loop: "{{ role_node_labels + inventory_node_labels }}"
+  delegate_to: "{{ groups['masters'][0] }}"
+  changed_when: false

@@ -1,4 +1,6 @@
 ---
+# tasks file for join-command
+
 - name: Get the kubeadm join command from the Kubernetes control plane.
   ansible.builtin.command: kubeadm token create --print-join-command
   changed_when: false
@@ -39,4 +41,4 @@
 
 - name: Print kubeadm join command for manual use
   ansible.builtin.debug:
-    var: kubernetes_join_certificate_key
+    var: kubernetes_join_certificate_key_arg

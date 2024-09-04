@@ -17,7 +17,7 @@
     # crio_config_file_path: "/etc/crio/crio.conf.d/10-crio.conf"
     # crio_subnet_config_path: "/etc/cni/net.d/11-crio-ipv4-bridge.conflist"
     # pause_image: "registry.k8s.io/pause:3.9"
-    kubeadm_init_extra: "--control-plane-endpoint {{ ansible_ssh_host }}:6443"
+    kubeadm_init_extra: "--control-plane-endpoint 192.168.0.132:6443"
     kubeadm_init_config: ""
     kubernetes_calico_manifest_file: "~/calico.yaml"
     kubernetes_pod_network:

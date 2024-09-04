@@ -56,6 +56,7 @@
 
 - name: Disable SeLinux
   ansible.builtin.command: setenforce 0
+  ignore_errors: true
 
 - name: Disable SeLinux
   ansible.builtin.command: sed -i --follow-symlinks 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/sysconfig/selinux

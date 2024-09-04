@@ -1,0 +1,29 @@
+---
+# vars file for cri-o
+crio_yum_name: "cri-o"
+crio_yum_description: "Cri-o Repository"
+crio_yum_base_url: "https://pkgs.k8s.io/addons:/cri-o:/stable:"
+
+
+crio_selinux: true
+
+
+crio_enable_metrics: true
+crio_metrics_port: 9537
+crio_pause_image: "registry.k8s.io/pause:3.8"
+crio_signature_policy: "/etc/crio/policy.json"
+crio_default_runtime: "crun"
+crio_seccomp_profile: "/etc/containers/policy.json"
+crio_runtimes:
+  - name: "crun"
+    path: "/usr/libexec/crio/crun"
+    root: "/run/crun"
+    monitor_path: "/usr/libexec/crio/conmon"
+    allowed_annotations:
+      - "io.containers.trace-syscall"
+  - name: "runc"
+    path: "/usr/libexec/crio/runc"
+    root: "/run/runc"
+    monitor_path: "/usr/libexec/crio/conmon"
+crio_registries: []
+nri_enabled: false

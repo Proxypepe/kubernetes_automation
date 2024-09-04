@@ -1,0 +1,72 @@
+---
+
+
+- name: Create audit-policy directory
+  ansible.builtin.file:
+    path: "{{ audit_policy_file | dirname }}"
+    state: directory
+    mode: "0640"
+  when: kubernetes_audit | default(false) or kubernetes_audit_webhook | default(false)
+
+- name: Write api audit policy yaml
+  ansible.builtin.template:
+    src: apiserver-audit-policy.yaml.j2
+    dest: "{{ audit_policy_file }}"
+    mode: "0640"
+  when: kubernetes_audit | default(false) or kubernetes_audit_webhook | default(false)
+
+- name: Write api audit webhook config yaml
+  ansible.builtin.template:
+    src: apiserver-audit-webhook-config.yaml.j2
+    dest: "{{ audit_webhook_config_file }}"
+    mode: "0640"
+  when: kubernetes_audit_webhook | default(false)
+
+- name: Create apiserver tracing config directory
+  ansible.builtin.file:
+    path: "{{ kube_config_dir }}/tracing"
+    state: directory
+    mode: "0640"
+  when: kube_apiserver_tracing
+
+- name: Write apiserver tracing config yaml
+  ansible.builtin.template:
+    src: apiserver-tracing.yaml.j2
+    dest: "{{ kube_config_dir }}/tracing/apiserver-tracing.yaml"
+    mode: "0640"
+  when: kube_apiserver_tracing
+
+- name: Kubeadm | Create directory to store admission control configurations
+  ansible.builtin.file:
+    path: "{{ kube_config_dir }}/admission-controls"
+    state: directory
+    mode: "0640"
+  when: kube_apiserver_admission_control_config_file
+
+- name: Kubeadm | Push admission control config file
+  ansible.builtin.template:
+    src: "admission-controls.yaml.j2"
+    dest: "{{ kube_config_dir }}/admission-controls/admission-controls.yaml"
+    mode: "0640"
+  when: kube_apiserver_admission_control_config_file
+
+- name: Kubeadm | Push admission control config files
+  ansible.builtin.template:
+    src: "{{ item | lower }}.yaml.j2"
+    dest: "{{ kube_config_dir }}/admission-controls/{{ item | lower }}.yaml"
+    mode: "0640"
+  when:
+    - kube_apiserver_admission_control_config_file
+    - item in kube_apiserver_admission_plugins_needs_configuration
+  loop: "{{ kube_apiserver_enable_admission_plugins }}"
+
+- name: Kubeadm | Initialize first master
+  ansible.builtin.command: >-
+    kubeadm init {{ kube_extra_vars | default("") }}
+# --config={{ kube_config_dir }}/kubeadm-config.yaml
+  register: kubeadm_init
+  retries: 3
+  until: kubeadm_init is succeeded or "field is immutable" in kubeadm_init.stderr
+  failed_when: kubeadm_init.rc != 0 and "field is immutable" not in kubeadm_init.stderr
+  changed_when: false
+  notify: Master | restart kubelet

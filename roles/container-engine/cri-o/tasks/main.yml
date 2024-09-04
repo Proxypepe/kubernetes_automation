@@ -1,0 +1,14 @@
+---
+# tasks file for cri-o
+
+- name: Include rpm packages
+  ansible.builtin.include_tasks: install-package-rpm.yaml
+  when: crio_yum_enabled | default(omit)
+  tags:
+    - cri-o
+    - package-installation
+
+- name: Include configuration
+  ansible.builtin.include_tasks: configure.yaml
+  tags:
+    - cri-o

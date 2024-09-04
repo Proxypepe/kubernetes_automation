@@ -1,0 +1,15 @@
+---
+# tasks file for calico
+- name: Copy calico static file
+  ansible.builtin.copy:
+    src: calico.yaml
+    dest: "{{ kubernetes_calico_manifest_file }}"
+    mode: "0644"
+
+- name: Configure Calico networking.
+  ansible.builtin.command: "kubectl apply -f {{ kubernetes_calico_manifest_file }}"
+  register: calico_result
+  changed_when: "'created' in calico_result.stdout"
+  until: calico_result is not failed
+  retries: 12
+  delay: 5
