@@ -1,0 +1,12 @@
+---
+# handlers file for upgrade
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  listen: restart kubelet
+
+- name: Reload kubelet
+  ansible.builtin.service:
+    name: kubelet
+    state: restarted
+  listen: restart kubelet

@@ -1,0 +1,85 @@
+---
+# tasks file for pre-upgrade
+
+# Node Ready: type = ready, status = True
+# Node NotReady: type = ready, status = Unknown
+- name: See if node is in ready state
+  ansible.builtin.command: >
+    {{ kubectl }} get node {{ kube_override_hostname | default(inventory_hostname) }}
+    -o jsonpath='{ range .status.conditions[?(@.type == "Ready")].status }{ @ }{ end }'
+  register: kubectl_node_ready
+  delegate_to: "{{ groups['masters'][0] }}"
+  failed_when: false
+  changed_when: false
+
+# SchedulingDisabled: unschedulable = true
+# else unschedulable key doesn't exist
+- name: See if node is schedulable
+  ansible.builtin.command: >
+    {{ kubectl }} get node {{ kube_override_hostname | default(inventory_hostname) }}
+    -o jsonpath='{ .spec.unschedulable }'
+  register: kubectl_node_schedulable
+  delegate_to: "{{ groups['masters'][0] }}"
+  failed_when: false
+  changed_when: false
+
+- name: Set if node needs cordoning
+  ansible.builtin.set_fact:
+    needs_cordoning: "{{ (kubectl_node_ready.stdout == 'True' and not kubectl_node_schedulable.stdout) or upgrade_node_always_cordon }}"
+
+- name: Node draining
+  delegate_to: "{{ groups['masters'][0] }}"
+  when:
+    - needs_cordoning
+  block:
+    - name: Cordon node
+      ansible.builtin.command: "{{ kubectl }} cordon {{ kube_override_hostname | default(inventory_hostname) }}"
+      delegate_to: "{{ groups['masters'][0] }}"
+      changed_when: true
+
+    - name: Drain node
+      ansible.builtin.command: >-
+        {{ kubectl }} drain
+        --force
+        --ignore-daemonsets
+        --grace-period {{ drain_grace_period }}
+        --timeout {{ drain_timeout }}
+        --delete-emptydir-data {{ kube_override_hostname | default(inventory_hostname) }}
+        {% if drain_pod_selector %}--pod-selector '{{ drain_pod_selector }}'{% endif %}
+      when: drain_nodes
+      register: result
+      failed_when:
+        - result.rc != 0
+        - not drain_fallback_enabled
+      until: result.rc == 0
+      retries: "{{ drain_retries }}"
+      delay: "{{ drain_retry_delay_seconds }}"
+
+    - name: Drain node - fallback with disabled eviction
+      when:
+        - drain_nodes
+        - drain_fallback_enabled
+        - result.rc != 0
+      ansible.builtin.command: >-
+        {{ kubectl }} drain
+        --force
+        --ignore-daemonsets
+        --grace-period {{ drain_fallback_grace_period }}
+        --timeout {{ drain_fallback_timeout }}
+        --delete-emptydir-data {{ kube_override_hostname | default(inventory_hostname) }}
+        {% if drain_pod_selector %}--pod-selector '{{ drain_pod_selector }}'{% endif %}
+        --disable-eviction
+      register: drain_fallback_result
+      until: drain_fallback_result.rc == 0
+      retries: "{{ drain_fallback_retries }}"
+      delay: "{{ drain_fallback_retry_delay_seconds }}"
+      changed_when: drain_fallback_result.rc == 0
+
+  rescue:
+    - name: Set node back to schedulable
+      ansible.builtin.command: "{{ kubectl }} uncordon {{ kube_override_hostname | default(inventory_hostname) }}"
+      when: upgrade_node_uncordon_after_drain_failure
+    - name: Fail after rescue
+      ansible.builtin.fail:
+        msg: "Failed to drain node {{ kube_override_hostname | default(inventory_hostname) }}"
+      when: upgrade_node_fail_if_drain_fails

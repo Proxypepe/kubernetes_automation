@@ -1,0 +1,10 @@
+---
+# tasks file for system-upgrade
+- name: YUM upgrade
+  when:
+  - system_upgrade
+  - ansible_os_family == "RedHat"
+  - not is_fedora_coreos
+  include_tasks: yum.yml
+  tags:
+  - system-upgrade-yum
