@@ -1,0 +1,9 @@
+---
+# defaults file for host-reachability
+check_ports:
+  - port: 22
+    timeout: 5
+  - port: 80
+    timeout: 3
+  - port: 443
+    timeout: 3

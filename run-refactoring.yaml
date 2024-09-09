@@ -4,40 +4,103 @@
 #   hosts: all
 #   become: true
 #   tasks:
-    # - name: Install deps
-    #   ansible.builtin.import_role:
-    #     name: os/redos
-    # - name: Install deps
-    #   ansible.builtin.import_role:
-    #     name: container-engine/cri-o
+#     - name: Install deps
+#       ansible.builtin.import_role:
+#         name: os/redos
+#     - name: Install deps
+#       ansible.builtin.import_role:
+#         name: container-engine/cri-o
+#       vars:
+#         crio_version: "1.30"
 
-- name: Initialize kubernetes
-  hosts: masters[0]
-  become: true
-  gather_facts: false
-  tasks:
-    # - name: Initialize Kubernetes
-    #   ansible.builtin.import_role:
-    #     name: kubernetes/init-cluster
-    # - name: Install CNI
-    #   ansible.builtin.import_role:
-    #     name: network_plugin/calico
-    - name: Generate initial command
-      ansible.builtin.import_role:
-        name: kubernetes/join-command
+# - name: Check ports
+#   hosts: all
+#   become: true
+#   gather_facts: false
+#   tasks:
+#     - name: Initialize Kubernetes
+#       ansible.builtin.import_role:
+#         name: check/host-reachability
+
+# - name: Initialize kubernetes
+#   hosts: masters[0]
+#   become: true
+#   gather_facts: false
+#   tasks:
+#     - name: Initialize Kubernetes
+#       ansible.builtin.import_role:
+#         name: kubernetes/init-cluster
+#       vars:
+#         kubeadm_extra_vars: "--control-plane-endpoint 192.168.0.116:6443"
+#     - name: Install CNI
+#       ansible.builtin.import_role:
+#         name: network_plugin/calico
+#     - name: Generate initial command
+#       ansible.builtin.import_role:
+#         name: kubernetes/join-command
 
 # - name: Join other masters
 #   hosts: masters[1:]
 #   become: true
 #   gather_facts: false
 #   tasks:
-#     - name: Join Kubernetes cluster
+#     - name: Generate initial command
+#       ansible.builtin.import_role:
+#         name: kubernetes/join-command
+#       delegate_to: "{{ groups['masters'] | first }}"
 
-- name: Join slaves
-  hosts: workers
+#     - name: Join Kubernetes cluster master node
+#       ansible.builtin.import_role:
+#         name: kubernetes/join-node
+#       vars:
+#         kubernetes_join_extra_vars: "--control-plane {{ kubernetes_join_certificate_key_arg }}"
+
+# - name: Join slaves
+#   hosts: workers
+#   become: true
+#   gather_facts: false
+#   tasks:
+#     - name: Join Kubernetes cluster
+#       ansible.builtin.import_role:
+#         name: kubernetes/join-node
+
+# --------------------------------------------------------------------|
+# New node
+# - name: Join slaves
+#   hosts: new-node
+#   become: true
+#   gather_facts: false
+#   tasks:
+#     - name: Generate initial command
+#       ansible.builtin.import_role:
+#         name: kubernetes/join-command
+#       delegate_to: "{{ groups['masters'] | first }}"
+#     - name: Join Kubernetes cluster
+#       ansible.builtin.import_role:
+#         name: kubernetes/join-node
+# --------------------------------------------------------------------|
+
+# - name: Remove-node
+#   hosts: remove-node
+#   become: true
+#   serial: 1
+#   gather_facts: false
+#   tasks:
+#     - name: Remove-node
+#       ansible.builtin.import_role:
+#         name: kubernetes/remove-node
+#     - name: Reset node
+#       ansible.builtin.import_role:
+#         name: kubernetes/reset
+
+- name: Node_labels
+  hosts: masters
   become: true
   gather_facts: false
   tasks:
-    - name: Join Kubernetes cluster
+    - name: Remove-node
       ansible.builtin.import_role:
-        name: kubernetes/join-node
+        name: kubernetes/node-taint
+      vars:
+        role_node_taints:
+          - "node-role.kubernetes.io/control-plane:NoSchedule-"

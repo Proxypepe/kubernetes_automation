@@ -1,2 +1,10 @@
 ---
 # tasks file for reset
+
+- name: Reset node
+  ansible.builtin.command: kubeadm reset --force
+  changed_when: false
+
+- name: Remove crio container
+  ansible.builtin.include_tasks: crio.yml
+  when: container_manager | default("crio") == 'crio' and role | default("") in ['master', 'control-plane']

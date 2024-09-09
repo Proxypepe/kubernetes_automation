@@ -1,0 +1,11 @@
+---
+
+- name: Check port availability on other hosts in the group
+  ansible.builtin.wait_for:
+    host: "{{ hostname }}"
+    port: "{{ item.port }}"
+    timeout: "{{ item.timeout }}"
+    state: started  # Ждём доступности порта"
+  loop:
+    "{{ check_ports }}"
+  ignore_errors: true

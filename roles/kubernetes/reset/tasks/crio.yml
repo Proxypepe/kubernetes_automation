@@ -1,0 +1,31 @@
+---
+
+- name: Remove apiserver container containerd/crio
+  ansible.builtin.shell: "set -o pipefail && crictl pods --name kube-apiserver* -q | xargs -I% --no-run-if-empty bash -c 'crictl stopp % && crictl rmp %'"
+  args:
+    executable: /bin/bash
+  changed_when: false
+  register: remove_apiserver_container
+  retries: 10
+  until: remove_apiserver_container.rc == 0
+  delay: 1
+
+- name: Control plane | Remove scheduler container containerd/crio
+  ansible.builtin.shell: "set -o pipefail && crictl pods --name kube-scheduler* -q | xargs -I% --no-run-if-empty bash -c 'crictl stopp % && crictl rmp %'"
+  args:
+    executable: /bin/bash
+  changed_when: false
+  register: remove_scheduler_container
+  retries: 10
+  until: remove_scheduler_container.rc == 0
+  delay: 1
+
+- name: Control plane | Remove controller manager container containerd/crio
+  ansible.builtin.shell: "set -o pipefail && crictl pods --name kube-controller-manager* -q | xargs -I% --no-run-if-empty bash -c 'crictl stopp % && crictl rmp %'"
+  args:
+    executable: /bin/bash
+  changed_when: false
+  register: remove_cm_container
+  retries: 10
+  until: remove_cm_container.rc == 0
+  delay: 1

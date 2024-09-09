@@ -1,0 +1,11 @@
+---
+# tasks file for host-reachability
+- name: Gather list of hosts in the group
+  ansible.builtin.set_fact:
+    target_hosts: "{{ groups['masters'] + groups['workers'] | difference([inventory_hostname]) }}"
+
+- name: Check hosts
+  ansible.builtin.include_tasks: ping.yml
+  loop: "{{ target_hosts }}"
+  loop_control:
+    loop_var: hostname

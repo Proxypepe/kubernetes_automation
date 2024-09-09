@@ -62,7 +62,7 @@
 
 - name: Kubeadm | Initialize first master
   ansible.builtin.command: >-
-    kubeadm init {{ kube_extra_vars | default("") }}
+    kubeadm init {{ kubeadm_extra_vars | default("") }}
 # --config={{ kube_config_dir }}/kubeadm-config.yaml
   register: kubeadm_init
   retries: 3

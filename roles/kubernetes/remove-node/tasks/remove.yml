@@ -1,0 +1,24 @@
+---
+
+- name: Remove-node | Drain node except daemonsets resource
+  ansible.builtin.command: >-
+    kubectl drain
+      --force
+      --ignore-daemonsets
+      --grace-period {{ drain_grace_period }}
+      --timeout {{ drain_timeout }}
+      --delete-emptydir-data {{ kube_override_hostname | default(inventory_hostname) }}
+  when:
+    - groups['masters'] | length > 0
+    # ignore servers that are not nodes
+    - kube_override_hostname | default(inventory_hostname) in nodes.stdout_lines
+  register: result
+  changed_when: result.rc == 0
+  failed_when: result.rc != 0 and not allow_ungraceful_removal
+  delegate_to: "{{ groups['masters'] | first }}"
+  until: result.rc == 0 or allow_ungraceful_removal
+  retries: "{{ drain_retries }}"
+  delay: "{{ drain_retry_delay_seconds }}"
+
+- name: Remove-node | Include remove base
+  ansible.builtin.include_tasks: remove-base.yml

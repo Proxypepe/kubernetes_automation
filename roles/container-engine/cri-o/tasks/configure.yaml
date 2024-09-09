@@ -38,14 +38,6 @@
   loop: "{{ crio_registries }}"
   notify: Restart crio
 
-- name: Cri-o | trigger service restart only when needed
-  ansible.builtin.service:
-    name: crio
-    state: restarted
-  when:
-    - config_install.changed or reg_auth_install.changed
-    - not service_start.changed
-
 - name: Cri-o | ensure crio service is started and enabled
   ansible.builtin.service:
     name: crio
@@ -53,6 +45,14 @@
     enabled: true
     state: started
   register: service_start
+
+- name: Cri-o | trigger service restart only when needed
+  ansible.builtin.service:
+    name: crio
+    state: restarted
+  when:
+    - config_install.changed or reg_auth_install.changed
+    - not service_start.changed
 
 - name: Cri-o | verify that crio is running
   ansible.builtin.command: "/usr/bin/crictl info"

@@ -3,16 +3,7 @@
 
 - name: Set role and inventory node taint to empty list
   ansible.builtin.set_fact:
-    role_node_taints: []
     inventory_node_taints: []
-
-- name: Node taint for nvidia GPU nodes
-  ansible.builtin.set_fact:
-    role_node_taints: "{{ role_node_taints + ['nvidia.com/gpu=:NoSchedule'] }}"
-  when:
-    - nvidia_gpu_nodes is defined
-    - nvidia_accelerator_enabled | bool
-    - inventory_hostname in nvidia_gpu_nodes
 
 - name: Populate inventory node taint
   ansible.builtin.set_fact:
@@ -31,7 +22,7 @@
 
 - name: Set taint to node
   ansible.builtin.command: >-
-    {{ kubectl }} taint node {{ kube_override_hostname | default(inventory_hostname) }} {{ (role_node_taints + inventory_node_taints) | join(' ') }} --overwrite=true
+    kubectl taint node {{ kube_override_hostname | default(inventory_hostname) }} {{ (role_node_taints + inventory_node_taints) | join(' ') }} --overwrite=true
   delegate_to: "{{ groups['masters'][0] }}"
   changed_when: false
   when:

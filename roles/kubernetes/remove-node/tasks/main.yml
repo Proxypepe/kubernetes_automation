@@ -1,2 +1,76 @@
 ---
 # tasks file for remove-node
+
+- name: Remove-node | List nodes
+  ansible.builtin.command: >-
+    kubectl get nodes -o go-template={% raw %}'{{ range .items }}{{ .metadata.name }}{{ "\n" }}{{ end }}'{% endraw %}
+  register: nodes
+  when:
+    - groups['masters'] | length > 0
+  delegate_to: "{{ groups['masters'] | first }}"
+  changed_when: false
+  run_once: true
+
+- name: List nodes
+  ansible.builtin.debug:
+    var: nodes.stdout_lines
+
+# - name: Remove-node | List nodes
+#   ansible.builtin.command: >-
+#     kubectl get nodes -o go-template={% raw %}'{{ range .items }}{{ .metadata.roles }}{{ "\n" }}{{ end }}'{% endraw %}
+#   register: roles
+#   when:
+#     - groups['masters'] | length > 0
+#   delegate_to: "{{ groups['masters'] | first }}"
+#   changed_when: false
+#   run_once: true
+
+# - name: List nodes
+#   ansible.builtin.debug:
+#     var: roles.stdout_lines
+
+- name: Get list of all nodes with roles
+  ansible.builtin.command: kubectl get nodes --no-headers
+  register: nodes_output
+  failed_when: nodes_output.rc != 0
+  delegate_to: "{{ groups['masters'] | first }}"
+  changed_when: false
+  run_once: true
+
+- name: Parse nodes and their roles
+  ansible.builtin.set_fact:
+    nodes_roles: "{{ nodes_output.stdout_lines | map('regex_replace', '\\s+', ' ') | map('split', ' ') | map('zip', ['name', 'status', 'role', 'uptime', 'version']) | map('map', 'reverse') | map('community.general.dict') }}"
+  run_once: true
+
+- name: Show converted list of maps
+  ansible.builtin.debug:
+    var: nodes_roles
+  run_once: true
+
+- name: Count control-plane nodes
+  ansible.builtin.set_fact:
+    control_plane_count: "{{ nodes_roles | selectattr('role', 'equalto', 'control-plane') | list | length }}"
+
+- name: Check if inventory_hostname is a control-plane node
+  ansible.builtin.set_fact:
+    is_control_plane: "{{ nodes_roles | selectattr('name', 'equalto', inventory_hostname) | selectattr('role', 'equalto', 'control-plane') | list | length > 0 }}"
+
+- name: Show control-plane node count
+  ansible.builtin.debug:
+    msg: "Number of control-plane nodes: {{ control_plane_count }}"
+  run_once: true
+- name: Show control-plane node count
+  ansible.builtin.debug:
+    msg: "is_control_plane: {{ is_control_plane }}"
+  run_once: true
+
+- name: Remove-node | Include pre remove
+  ansible.builtin.include_tasks: remove-base.yml
+  when:
+    - not (groups['masters'] | length == 1 and inventory_hostname in groups['masters'])
+    - is_control_plane and control_plane_count | int > 1
+
+- name: Remove-node | Include pre remove
+  ansible.builtin.include_tasks: remove.yml
+  when:
+    - not is_control_plane

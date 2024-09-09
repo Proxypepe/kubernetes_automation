@@ -1,2 +1,9 @@
 ---
 # defaults file for remove-node
+allow_ungraceful_removal: false
+drain_grace_period: 300
+drain_timeout: 360s
+drain_retries: 1
+drain_retry_delay_seconds: 2
+delete_node_retries: 10
+delete_node_delay_seconds: 3
