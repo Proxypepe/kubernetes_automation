@@ -31,13 +31,22 @@
 #       ansible.builtin.import_role:
 #         name: kubernetes/init-cluster
 #       vars:
-#         kubeadm_extra_vars: "--control-plane-endpoint 192.168.0.116:6443"
+#         kubeadm_extra_vars: "--control-plane-endpoint 192.168.0.120:6443"
 #     - name: Install CNI
 #       ansible.builtin.import_role:
 #         name: network_plugin/calico
 #     - name: Generate initial command
 #       ansible.builtin.import_role:
 #         name: kubernetes/join-command
+
+# - name: Join slaves
+#   hosts: workers
+#   become: true
+#   gather_facts: false
+#   tasks:
+#     - name: Join Kubernetes cluster
+#       ansible.builtin.import_role:
+#         name: kubernetes/join-node
 
 # - name: Join other masters
 #   hosts: masters[1:]
@@ -86,21 +95,33 @@
 #   serial: 1
 #   gather_facts: false
 #   tasks:
-#     - name: Remove-node
-#       ansible.builtin.import_role:
-#         name: kubernetes/remove-node
+# #     - name: Remove-node
+# #       ansible.builtin.import_role:
+# #         name: kubernetes/remove-node
 #     - name: Reset node
 #       ansible.builtin.import_role:
 #         name: kubernetes/reset
 
-- name: Node_labels
-  hosts: masters
+# - name: Node_labels
+#   hosts: all 
+#   become: true
+#   gather_facts: false
+#   tasks:
+#     - name: Remove-node
+#       ansible.builtin.import_role:
+#         name: kubernetes/node-taint
+#       vars:
+#         role_node_taints:
+#           - "node-role.kubernetes.io/control-plane:NoSchedule-"
+
+
+- name: Argo config
+  hosts: masters[0]
   become: true
   gather_facts: false
   tasks:
     - name: Remove-node
       ansible.builtin.import_role:
-        name: kubernetes/node-taint
-      vars:
-        role_node_taints:
-          - "node-role.kubernetes.io/control-plane:NoSchedule-"
+        name: integrations/argocd
+
+

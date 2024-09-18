@@ -1,0 +1,17 @@
+---
+# tasks file for vault
+- name: Vault | Get ca cert
+  ansible.builtin.shell: |
+    set -o pipefail
+    kubectl 
+  register: argocd_ca_crt
+  changed_when: false
+  # delegate_to: groups['masters'][0]
+
+- name: Vault | Get ServiceAccount token
+  ansible.builtin.shell: |
+    set -o pipefail
+    kubectl get secret/{{ argocd_serviceaccount_name }} --namespace {{ argocd_serviceaccount_namespace }} -o jsonpath='{.data.token}' | base64 --decode
+  register: argocd_token
+  changed_when: false
+  # delegate_to: groups['masters'] | first

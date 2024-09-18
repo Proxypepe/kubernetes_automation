@@ -1,0 +1,35 @@
+---
+# tasks file for argocd
+
+
+# - name: ArgoCD | Create ServiceAccount
+#   ansible.builtin.command: kubectl create sa {{ argocd_serviceaccount_name }} -n {{ argocd_serviceaccount_namespace }}
+#   changed_when: false
+#   delegate_to: groups['masters'] | first
+#   when:
+#     - inventory_hostname == groups['masters'] | first
+
+- name: ArgoCD | Get ca cert
+  ansible.builtin.command: >
+    kubectl get secret/{{ argocd_serviceaccount_name }} --namespace {{ argocd_serviceaccount_namespace }} -o jsonpath='{.data.ca\.crt}'
+  register: argocd_ca_crt
+  changed_when: false
+  # delegate_to: groups['masters'][0]
+
+- name: ArgoCD | Get ServiceAccount token
+  ansible.builtin.shell: |
+    set -o pipefail
+    kubectl get secret/{{ argocd_serviceaccount_name }} --namespace {{ argocd_serviceaccount_namespace }} -o jsonpath='{.data.token}' | base64 --decode
+  register: argocd_token
+  changed_when: false
+  # delegate_to: groups['masters'] | first
+
+- name: ArgoCD | set fact config
+  ansible.builtin.set_fact:
+  argocd_config:
+    cert: "{{ argocd_ca_crt.stdout }}"
+    token: "{{ argocd_token.stdout }}"
+
+- name: ArgoCD | config
+  ansible.builtin.debug:
+    msg: "{{ argocd_config | to_nice_json }}"

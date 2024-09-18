@@ -1,0 +1,4 @@
+---
+# vars file for argocd
+argocd_serviceaccount_name: 
+argocd_serviceaccount_namespace: kube-system
